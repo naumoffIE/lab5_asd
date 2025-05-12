@@ -1,0 +1,169 @@
+#include <iostream>
+#include <list>
+#include <vector>
+#include <string>
+#include <ctime>
+#include <cstdlib>
+#include <cstring>
+
+template <typename K, typename T>
+class HashTable {
+private:
+    std::vector<std::list<std::pair<K, T>>> table;
+    int size;
+
+    int hash(const K& key) const {
+        return static_cast<int>(key) % size;
+    }
+
+public:
+    // Пустой конструктор
+    HashTable(int sz) : size(sz), table(sz) {}
+
+    // Конструктор со случайными значениями
+    HashTable(int sz, int count) : size(sz), table(sz) {
+        srand(time(0));
+        for (int i = 0; i < count; ++i) {
+            K key = rand() % 1000;
+            T value = static_cast<T>(rand() % 100);
+            insert(key, value);
+        }
+    }
+
+    // Конструктор копирования
+    HashTable(const HashTable& other) : size(other.size), table(other.table) {}
+
+    // Деструктор
+    ~HashTable() = default;
+
+    // Оператор присваивания
+    HashTable& operator=(const HashTable& other) {
+        if (this != &other) {
+            size = other.size;
+            table = other.table;
+        }
+        return *this;
+    }
+
+    // Печать содержимого
+    void print() const {
+        for (int i = 0; i < size; ++i) {
+            std::cout << i << ": ";
+            for (const auto& pair : table[i]) {
+                std::cout << "[" << pair.first << ": " << pair.second << "] ";
+            }
+            std::cout << "\n";
+        }
+    }
+
+    // Вставка
+    bool insert(K key, const T& value) {
+        int idx = hash(key);
+        for (auto& pair : table[idx]) {
+            if (pair.first == key)
+                return false;
+        }
+        table[idx].emplace_back(key, value);
+        return true;
+    }
+
+    // Вставка или присваивание
+    void insert_or_assign(K key, T& value) {
+        int idx = hash(key);
+        for (auto& pair : table[idx]) {
+            if (pair.first == key) {
+                pair.second = value;
+                return;
+            }
+        }
+        table[idx].emplace_back(key, value);
+    }
+
+    // Проверка наличия значения
+    bool contains(T& value) const {
+        for (const auto& bucket : table) {
+            for (const auto& pair : bucket) {
+                if (pair.second == value)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    // Поиск по ключу
+    T* search(K key) {
+        int idx = hash(key);
+        for (auto& pair : table[idx]) {
+            if (pair.first == key)
+                return &pair.second;
+        }
+        return nullptr;
+    }
+
+    // Удаление по ключу
+    bool erase(K key) {
+        int idx = hash(key);
+        auto& bucket = table[idx];
+        for (auto it = bucket.begin(); it != bucket.end(); ++it) {
+            if (it->first == key) {
+                bucket.erase(it);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Кол-во элементов с таким же значением хеша
+    int count(K key) {
+        int idx = hash(key);
+        return table[idx].size();
+    }
+};
+
+// ------------------ Pearson Hash ------------------
+
+uint8_t pearson_table[256] = {
+    98,   6,  85, 150,  36,  23,  12, 140,  45,  90,  15, 131,  87, 166,  10,  20,
+   188,  91, 175,  8,   25,  113, 238, 107,  255, 0,  205,  61,  192, 163, 143,  1,
+   186, 225, 196,  79,  217,  34,  16, 121,  153, 226,  241, 69,  117, 176,  28,  70,
+   97, 105,  52,  64, 126, 130,  182, 185,  77,  225, 139, 193,  203,  41,  82,  103,
+   208,  63,  38, 198, 190, 200, 115,  11,  96,  216, 173, 212,  48, 149, 144,  63,
+   242,  80,  174,  221, 104, 178, 225, 248,  44,  99, 124, 232,  122,  59,  33,  139,
+   252,  220, 179, 76,  187, 194,  91,  3,  240, 18,  209,  187,  72, 195,  57,  104,
+   66, 108,  226, 244, 152, 255,  158,  230, 226, 191, 247, 199,  218, 174,  146, 219,
+   48, 244, 235,  228, 201, 235, 198, 246,  180,  214,  192, 178,  129, 229,  217, 190,
+   230, 198, 193,  17, 137, 233, 199, 212, 134,  191, 131, 221,  232, 146, 223, 206,
+   27, 213,  74,  111, 197,  250, 231,  222,  195,  34,  129,  95, 117,  100,  246,  180,
+   111, 135,  127, 102,  195,  188,  91, 206,  67, 100, 123,  63,  113, 167, 104, 186,
+   239,  236,  79, 156,  128, 196,  219, 232,  178, 139,  62,  140, 246, 135,  127,  67,
+   180,  43, 198, 195, 122, 211,  212, 105, 210,  130,  13, 130, 185,  192, 235, 199,
+   139, 193,  222, 194,  209, 192, 136, 172, 172, 253, 124, 243,  224, 146,  114, 222,
+   152,  57,  200, 177,  137, 210,  128, 182,  167, 212, 147,  216,  234,  102,  117,  65
+};
+
+uint8_t pearson_hash(const std::string& str) {
+    uint8_t hash = 0;
+    for (char c : str) {
+        hash = pearson_table[hash ^ static_cast<uint8_t>(c)];
+    }
+    return hash;
+}
+
+bool compare_hashes(const std::string& str1, const std::string& str2) {
+    return pearson_hash(str1) == pearson_hash(str2);
+}
+
+int main() {
+    HashTable<int, std::string> map(10);
+    map.insert(1, "apple");
+    map.insert(2, "banana");
+    map.insert_or_assign(1, std::string("apricot"));
+
+    map.print();
+
+    std::string input1 = "Hello world!";
+    std::string input2 = "Hello world!";
+    std::cout << "Hash match: " << std::boolalpha << compare_hashes(input1, input2) << "\n";
+
+    return 0;
+}
