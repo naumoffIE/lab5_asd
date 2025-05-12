@@ -1,29 +1,65 @@
 #include <iostream>
-#include <list>
-#include <vector>
-#include <string>
-#include <ctime>
 #include <cstdlib>
+#include <cstring>
+#include <ctime>
 #include <string>
+
+using namespace std;
 
 template <typename K, typename T>
-class HashTable {
+class hash_table {
 private:
-    std::vector<std::list<std::pair<K, T>>> _table;
-    int _size;
+    struct Node {
+        K key;
+        T value;
+        Node* next;
 
-    int hash(const K& key) const {
-        return (key) % _size;
+        Node(const K& key_, const T& value_) : key(key_), value(value_), next(nullptr) { };
+    };
+
+    Node** table;
+    int capacity;
+    int size;
+
+    int hash(K key) const {
+        return key % capacity;
     }
-    double load_factor_threshold = 0.75;
+
+    void rehash() {
+        int old_capacity = capacity;
+        capacity *= 2;
+        Node** new_table = new Node * [capacity];
+        for (int i = 0; i < old_capacity; i++)
+        {
+            for (Node* current = table[i]; current; current = current->next)
+            {
+                new_table.insert(current);
+            }
+        }
+    }
+
 
 public:
-    // Пустой конструктор
-    HashTable(int size) : _size(size), _table(size) {}
+
+    hash_table() : size(0), capacity(0), table(nullptr) { }
+    // Конструктор по размеру
+    hash_table(int initial_capacity) {
+        capacity = initial_capacity;
+        size = 0;
+        table = new Node* [capacity];
+        for (int i = 0; i < capacity; ++i)
+            table[i] = nullptr;
+    }
 
     // Конструктор со случайными значениями
-    HashTable(int size, int count) : _size(size), _table(size) {
-        srand(time(0));
+    hash_table(int initial_capacity, int count) {
+        capacity = initial_capacity;
+        size = 0;
+        table = new Node* [capacity];
+        for (int i = 0; i < capacity; ++i)
+            table[i] = nullptr;
+
+        srand((unsigned)time(0));
         for (int i = 0; i < count; ++i) {
             K key = rand() % 1000;
             T value = rand() % 100;
@@ -32,132 +68,240 @@ public:
     }
 
     // Конструктор копирования
-    HashTable(const HashTable& other) : _size(other._size), _table(other._table) {}
+    hash_table(const hash_table& other) {
+        capacity = other.capacity;
+        size = 0;
+        table = new Node * [capacity];
+        for (int i = 0; i < capacity; ++i){
+            Node* current = other.table[i];
+            while (current) {
+                insert(current->key, current->value);
+                current = current->next;
+            }
+        }
+    }
 
     // Деструктор
-    ~HashTable() = default;
+    ~hash_table() {
+            for (int i = 0; i < capacity; ++i) {
+                Node* current = table[i];
+                while (current) {
+                    Node* next = current->next;
+                    delete current;
+                    current = next;
+                }
+                table[i] = nullptr;
+            }
+        delete[] table;
+    }
 
     // Оператор присваивания
-    HashTable& operator=(const HashTable& other) {
+    hash_table& operator=(const hash_table& other) {
         if (this != &other) {
-            _size = other._size;
-            _table = other._table;
+            clear_table();
+            delete[] table;
+
+            capacity = other.capacity;
+            size = 0;
+            table = new Node* [capacity];
+            for (int i = 0; i < capacity; ++i)
+                table[i] = nullptr;
+
+            for (int i = 0; i < capacity; ++i) {
+                Node* current = other.table[i];
+                while (current) {
+                    insert(current->key, current->value);
+                    current = current->next;
+                }
+            }
         }
         return *this;
     }
 
-    // Печать содержимого
-    void print() const {
-        for (int i = 0; i < _size; ++i) {
-            std::cout << i << ": ";
-            for (const auto& pair : _table[i]) {
-                std::cout << "[" << pair.first << ": " << pair.second << "] ";
-            }
-            std::cout << "\n";
-        }
-    }
-
     // Вставка
     bool insert(K key, const T& value) {
-        int idx = hash(key);
-        for (auto& pair : _table[idx]) {
-            if (pair.first == key)
+        int index = hash(key);
+        Node* current = table[index];
+        while (current) {
+            if (current->key == key)
                 return false;
+            current = current->next;
         }
-        _table[idx].emplace_back(key, value);
+        Node* new_node = new Node( key, value );
+        Node* head = table[index];
+        new_node->next = head;
+        table[index] = new_node;
+        ++size;
         return true;
     }
 
-    // Вставка или присваивание
+    // Вставка или обновление
     void insert_or_assign(K key, T& value) {
-        int idx = hash(key);
-        for (auto& pair : _table[idx]) {
-            if (pair.first == key) {
-                pair.second = value;
+        int index = hash(key);
+        Node* current = table[index];
+        while (current) {
+            if (current->key == key) {
+                current->value = value;
                 return;
             }
+            current = current->next;
         }
-        _table[idx].emplace_back(key, value);
+        Node* new_node = new Node{ key, value, table[index] };
+        table[index] = new_node;
+        ++size;
     }
 
-    // Проверка наличия значения
-    bool contains(T& value) const {
-        for (const auto& bucket : _table) {
-            for (const auto& pair : bucket) {
-                if (pair.second == value)
-                    return true;
+    // Удаление
+    bool erase(K key) {
+        int index = hash(key);
+        Node* current = table[index];
+        Node* prev = nullptr;
+        while (current) {
+            if (current->key == key) {
+                if (prev)
+                    prev->next = current->next;
+                else
+                    table[index] = current->next;
+                delete current;
+                --size;
+                return true;
             }
+            prev = current;
+            current = current->next;
         }
         return false;
     }
 
-    // Поиск по ключу
+    // Поиск
     T* search(K key) {
-        int idx = hash(key);
-        for (auto& pair : _table[idx]) {
-            if (pair.first == key)
-                return &pair.second;
+        int index = hash(key);
+        Node* current = table[index];
+        while (current) {
+            if (current->key == key)
+                return &current->value;
+            current = current->next;
         }
         return nullptr;
     }
 
-    // Удаление по ключу
-    bool erase(K key) {
-        int idx = hash(key);
-        auto& bucket = _table[idx];
-        for (auto it = bucket.begin(); it != bucket.end(); ++it) {
-            if (it->first == key) {
-                bucket.erase(it);
-                return true;
+    // Проверка наличия значения
+    bool contains(T& value) const {
+        for (int i = 0; i < capacity; ++i) {
+            Node* current = table[i];
+            while (current) {
+                if (current->value == value)
+                    return true;
+                current = current->next;
             }
         }
         return false;
     }
 
-    // Кол-во элементов с таким же значением хеша
+    // Количество элементов по хешу
     int count(K key) {
-        int idx = hash(key);
-        return _table[idx]._size();
+        int index = hash(key);
+        int cnt = 0;
+        Node* current = table[index];
+        while (current) {
+            ++cnt;
+            current = current->next;
+        }
+        return cnt;
     }
 
-    bool is_busy(size_t index)
-    {
-        if (table[index].element != nullptr)
-        {
-            return table[index].element->_status;
+    // Печать таблицы
+    void print() const {
+        for (size_t i = 0; i < size; ++i) {
+            cout << "Bucket #" << i << ": ";
+            for (Node* node = table[i]; node != nullptr; node = node->next) {
+                cout << "[" << node->key << ", " << node->value << "] ";
+            }
+            cout << '\n';
         }
-        return false;
     }
 };
 
 
 int main() {
-    HashTable<char, std::string> map(10);
-    map.insert(1, "apple");
-    map.insert(2, "banana");
-    map.insert_or_assign(1, std::string("apricot"));
+    /*HashTable<int, int> map;
+    map.insert(1, 85);
+    map.insert(11, 86);
+    map.insert(2, 87);
+    map.insert(12, 88);
 
+    cout << "HashTable:\n";
     map.print();
 
+    HashTable<int, int> map1(map);
 
-    
-    std::vector<int> num{ 25,75,125,175,225,275,325,375,425,475 };
-    std::vector<float> coliz;
-    for (int i = 0; i < num.size(); i++)
-    {
-        size_t table_size = num[i];
-        float total_collisions = 0;
-        for (int i = 0; i < 100; i++)
-        {
-            HashTable<int, int> hash_table1(table_size, 25);
-            total_collisions += hash_table1.count_hashtable();
+    cout << "\nCopied HashTable:\n";
+    map1.print();
+
+    map1.insert(3, 89);
+    map1.insert(33, 90);
+
+    cout << "\nCopied HashTable:\n";
+    map1.print();
+
+    map = map1;
+    cout << "\nHashTable:\n";
+    map.print();
+
+    map.insert_or_assign(23, 1);
+    map.insert_or_assign(33, 10);
+
+    cout << "\nHashTable:\n";
+    map.print();
+
+    map.insert_or_assign(23, 1000);
+
+    cout << "\nHashTable:\n";
+    map.print();
+
+    cout << "Is the table contains 85:" << map.contains(85) << "\n";
+
+    cout << "Value by index 23:" << *map.search(23);
+
+    map.erase(3);
+    map.insert(43, 12);
+    map.insert(53, 13);
+    map.insert(63, 14);
+
+    cout << "\nHashTable:\n";
+    map.print();
+    cout << map.count(63);*/
+
+
+
+    hash_table<char, int> romanNumbers;
+    romanNumbers.insert('I', 1);
+    romanNumbers.insert('V', 5);
+    romanNumbers.insert('X', 10);
+    romanNumbers.insert('L', 50);
+    romanNumbers.insert('C', 100);
+    romanNumbers.insert('D', 500);
+    romanNumbers.insert('M', 1000);
+    romanNumbers.print();
+
+    string input;
+    cout << "Enter romanial number ";
+    cin >> input;
+
+
+    int total = 0;
+    int prevValue = 0;
+
+    for (int i = input.length() - 1; i >= 0; i--) {
+        int currentValue = *romanNumbers.search(input[i]);
+        if (currentValue < prevValue) {
+            total -= currentValue;
         }
-        total_collisions = total_collisions / 100;
-        coliz.push_back(total_collisions);
+        else {
+            total += currentValue;
+        }
+        prevValue = currentValue;
     }
-    for (int i = 0; i < coliz.size(); i++)
-    {
-        std::cout << coliz[i] << '\n';
-    }
+    cout << total;
+
     return 0;
 }
