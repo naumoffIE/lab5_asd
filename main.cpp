@@ -260,7 +260,9 @@ public:
 
 int main() {
     HashTable<int, int> hash_table1(3, 2);
-    vector<int> num{ 25,30,35,40,45,50,55,60,75,125,175,225,275,325,375,425,475 };
+    vector<int> num{ 25,30,35,40,45,50,55,60,75,125,175,225,275,325,375,425,475 }; // пересчитать коллизии (там нужно само наличие коллизий, а не их количество
+    // нужно будет просто найти есть коллизия или нет и ,отталквиаясь от этого, искать процентики
+    // правильный ответ примерно 350 - 450 (в этом диапазоне)
     vector<float> collisions;
     for (int i = 0; i < num.size(); i++)
     {
@@ -269,7 +271,7 @@ int main() {
         for (int j = 0; j < 100; j++)
         {
             HashTable<int, int> hash_table1(table_size, 25);
-           /* hash_table1.print();*/
+            hash_table1.print();
             float total_collisions = hash_table1.count_collisions();
             sum_median_collisions += (total_collisions / num[i]) * 100;
         }
