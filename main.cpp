@@ -72,7 +72,7 @@ public:
         for (int i = 0; i < capacity; ++i) {
             table[i] = nullptr;
         }
-        srand(static_cast<unsigned>(time(0)));
+        //srand(static_cast<unsigned>(time(0)));
         for (int i = 0; i < count; ++i) {
             Key key = rand() % 1000;
             Value value = rand() % 100;
@@ -130,7 +130,9 @@ public:
     bool insert(const Key& key, const Value& value) {
         //if ((double)(size + 1) / capacity > LOAD_FACTOR_THRESHOLD) {
         //    rehash();
-        //}
+        //} 
+        // рехэш особо не нужен, т.к. по заданию я беру capacity из списка 
+        // и количество элементов по отношению к capacity не превысит 0,75 (по идее)
 
         int index = hash(key);
         Node* current = table[index];
@@ -242,12 +244,12 @@ public:
 
     int count_collisions() const {
         int counter = 0;
-        for (int i = 0; i < size; i++)
+        for (int i = 0; i < capacity; i++)
         {
             if (table[i]) {
                 Node* current = table[i];
                 int cur_count = count(current->key);
-                if (cur_count > 1)    counter += cur_count - 1;
+                if (cur_count > 1)    counter += (cur_count - 1);
             }
 
         }
@@ -259,7 +261,8 @@ public:
 };
 
 int main() {
-    HashTable<int, int> hash_table1(3, 2);
+    srand(static_cast<unsigned>(time(0))); // из-за этой пакости в конструкторе у меня ничего не работало
+
     vector<int> num{ 25,30,35,40,45,50,55,60,75,125,175,225,275,325,375,425,475 }; // пересчитать коллизии (там нужно само наличие коллизий, а не их количество
     // нужно будет просто найти есть коллизия или нет и ,отталквиаясь от этого, искать процентики
     // правильный ответ примерно 350 - 450 (в этом диапазоне)
@@ -267,25 +270,26 @@ int main() {
     for (int i = 0; i < num.size(); i++)
     {
         size_t table_size = num[i];
-        float sum_median_collisions = 0;
-        for (int j = 0; j < 100; j++)
-        {
+        
+        int collision_count = 0;
+        for (int j = 0; j < 100; j++) {
             HashTable<int, int> hash_table1(table_size, 25);
-            hash_table1.print();
-            float total_collisions = hash_table1.count_collisions();
-            sum_median_collisions += (total_collisions / num[i]) * 100;
+            //hash_table1.print(); 
+            if (hash_table1.count_collisions() >= 1) {
+                collision_count++;
+            }
         }
-        sum_median_collisions /= 100;
-      /*  total_collisions = total_collisions / 100;*/
+        float percentage = ((float)collision_count / 100) * 100; 
 
-        collisions.push_back(sum_median_collisions);
+        collisions.push_back(percentage);
     }
     for (int i = 0; i < collisions.size(); i++)
     {
-        cout << collisions[i] << '\n';
+        cout << collisions[i] << "\t---\t" << num[i] << '\n';
     }
     return 0;
 }
+// еще один main для проверки жизнеспособности кода
 
 //int main() {
 //    HashTable<int, int> map;
